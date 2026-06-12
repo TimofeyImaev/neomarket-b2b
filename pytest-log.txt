@@ -1,0 +1,8 @@
+tests/test_us_b2b_01_create_product.py::test_create_product_returns_201_with_created_status PASSED [ 14%]
+tests/test_us_b2b_01_create_product.py::test_seller_id_taken_from_jwt PASSED [ 28%]
+tests/test_us_b2b_01_create_product.py::test_missing_images_returns_400 PASSED [ 42%]
+tests/test_us_b2b_01_create_product.py::test_missing_category_returns_400 PASSED [ 57%]
+tests/test_us_b2b_01_create_product.py::test_invalid_category_id_returns_400 PASSED [ 71%]
+tests/test_us_b2b_01_create_product.py::test_empty_title_returns_400 PASSED [ 85%]
+tests/test_us_b2b_01_create_product.py::test_unauthorized_returns_401 PASSED [100%]
+========================= 7 passed, 1 warning in 0.26s =========================
