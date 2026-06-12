@@ -1,0 +1,4 @@
+INSERT INTO categories (id, name, parent_id) VALUES
+    ('11111111-1111-1111-1111-111111111111', 'Электроника', NULL),
+    ('f47ac10b-58cc-4372-a567-0e02b2c3d479', 'Смартфоны', '11111111-1111-1111-1111-111111111111')
+ON CONFLICT (id) DO NOTHING;

@@ -1,0 +1,70 @@
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ImageIn(BaseModel):
+    url: str
+    ordering: int = 0
+
+
+class CharacteristicIn(BaseModel):
+    name: str
+    value: str
+
+
+class ProductCreateIn(BaseModel):
+    # Поля опциональны на уровне pydantic: обязательность проверяется в сервисе,
+    # чтобы отдавать 400 {code, message} по канону, а не 422 от FastAPI.
+    # extra="ignore" — seller_id из тела не принимается, только из JWT.
+    model_config = ConfigDict(extra="ignore")
+
+    title: str | None = None
+    description: str | None = None
+    category_id: str | None = None
+    slug: str | None = None
+    images: list[ImageIn] | None = None
+    characteristics: list[CharacteristicIn] = Field(default_factory=list)
+
+
+class ImageOut(BaseModel):
+    id: str
+    url: str
+    ordering: int
+
+
+class CharacteristicOut(BaseModel):
+    id: str
+    name: str
+    value: str
+
+
+class SKUOut(BaseModel):
+    id: str
+    product_id: str
+    name: str
+    price: int
+    discount: int
+    cost_price: int | None
+    stock_quantity: int
+    active_quantity: int
+    reserved_quantity: int
+    article: str | None
+    created_at: str
+    updated_at: str
+
+
+class ProductOut(BaseModel):
+    id: str
+    seller_id: str
+    category_id: str
+    title: str
+    slug: str
+    description: str
+    status: str
+    deleted: bool
+    blocking_reason_id: str | None
+    moderator_comment: str | None
+    images: list[ImageOut]
+    characteristics: list[CharacteristicOut]
+    skus: list[SKUOut]
+    created_at: str
+    updated_at: str
