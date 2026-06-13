@@ -142,3 +142,37 @@ class ProductDetailOut(BaseModel):
     skus: list[SKUDetailOut]
     created_at: str
     updated_at: str
+
+
+# ── US-B2B-07: GET /api/v1/products (catalog for B2C) ────────────────────────
+
+class CatalogSKUOut(BaseModel):
+    """SKU в режиме каталога — без cost_price и reserved_quantity."""
+    id: str
+    product_id: str
+    name: str
+    price: int
+    discount: int
+    image: str | None
+    stock_quantity: int
+    active_quantity: int
+    article: str | None
+    characteristics: list[SKUCharacteristicOut]
+
+
+class CatalogProductOut(BaseModel):
+    id: str
+    seller_id: str
+    category_id: str
+    title: str
+    slug: str
+    description: str
+    status: str
+    images: list[ImageOut]
+    characteristics: list[CharacteristicOut]
+    skus: list[CatalogSKUOut]
+
+
+class CatalogResponse(BaseModel):
+    items: list[CatalogProductOut]
+    total: int
