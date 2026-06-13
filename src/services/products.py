@@ -38,7 +38,6 @@ def _validate(db: Session, data: ProductCreateIn) -> None:
 def create_product(db: Session, data: ProductCreateIn, seller_id: uuid.UUID) -> Product:
     _validate(db, data)
 
-    # товар без SKU остается в CREATED и на модерацию не отправляется (B2B-1)
     product = Product(
         seller_id=str(seller_id),
         category_id=data.category_id,
@@ -53,4 +52,12 @@ def create_product(db: Session, data: ProductCreateIn, seller_id: uuid.UUID) -> 
     db.add(product)
     db.commit()
     db.refresh(product)
+    return product
+
+
+def get_product(db: Session, product_id: str, seller_id: uuid.UUID) -> Product:
+    product = db.get(Product, product_id)
+    # 404 для несуществующего и чужого товара — не раскрываем существование
+    if product is None or product.seller_id != str(seller_id):
+        raise ApiError(404, "NOT_FOUND", "Product not found")
     return product

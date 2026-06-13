@@ -25,6 +25,31 @@ class Category(Base):
     )
 
 
+class BlockingReason(Base):
+    __tablename__ = "blocking_reasons"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    field_reports: Mapped[list["FieldReport"]] = relationship(
+        back_populates="blocking_reason", cascade="all, delete-orphan"
+    )
+    products: Mapped[list["Product"]] = relationship(back_populates="blocking_reason")
+
+
+class FieldReport(Base):
+    __tablename__ = "field_reports"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    blocking_reason_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("blocking_reasons.id"), nullable=False
+    )
+    field: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    blocking_reason: Mapped[BlockingReason] = relationship(back_populates="field_reports")
+
+
 class Product(Base):
     __tablename__ = "products"
 
@@ -38,7 +63,9 @@ class Product(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="CREATED")
     deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    blocking_reason_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    blocking_reason_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("blocking_reasons.id"), nullable=True
+    )
     moderator_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
@@ -55,6 +82,9 @@ class Product(Base):
     )
     skus: Mapped[list["SKU"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
+    )
+    blocking_reason: Mapped["BlockingReason | None"] = relationship(
+        back_populates="products", foreign_keys=[blocking_reason_id]
     )
 
 
