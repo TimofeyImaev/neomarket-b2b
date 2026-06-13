@@ -6,6 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from src.database import Base, engine
 from src.errors import ApiError, api_error_handler, validation_error_handler
 from src.routes.products import router as products_router
+from src.routes.skus import router as skus_router
 
 
 @asynccontextmanager
@@ -20,6 +21,7 @@ app = FastAPI(title="NeoMarket B2B Seller Cabinet", version="0.1.0", lifespan=li
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(products_router)
+app.include_router(skus_router)
 
 
 @app.get("/health")

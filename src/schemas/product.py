@@ -11,10 +11,37 @@ class CharacteristicIn(BaseModel):
     value: str
 
 
+class SKUCreateIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    product_id: str | None = None
+    name: str | None = None
+    price: int | None = None
+    cost_price: int | None = None
+    discount: int = 0
+    image: str | None = None
+    characteristics: list[CharacteristicIn] = Field(default_factory=list)
+
+
+class SKUCharacteristicOut(BaseModel):
+    name: str
+    value: str
+
+
+class SKUCreateOut(BaseModel):
+    id: str
+    product_id: str
+    name: str
+    price: int
+    cost_price: int
+    discount: int
+    image: str
+    active_quantity: int
+    reserved_quantity: int
+    characteristics: list[SKUCharacteristicOut]
+
+
 class ProductCreateIn(BaseModel):
-    # Поля опциональны на уровне pydantic: обязательность проверяется в сервисе,
-    # чтобы отдавать 400 {code, message} по канону, а не 422 от FastAPI.
-    # extra="ignore" — seller_id из тела не принимается, только из JWT.
     model_config = ConfigDict(extra="ignore")
 
     title: str | None = None

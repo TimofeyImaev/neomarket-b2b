@@ -36,7 +36,6 @@ class Product(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    # ProductStatus: CREATED | ON_MODERATION | MODERATED | BLOCKED | HARD_BLOCKED
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="CREATED")
     deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     blocking_reason_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
@@ -85,9 +84,20 @@ class ProductCharacteristic(Base):
     product: Mapped[Product] = relationship(back_populates="characteristics")
 
 
+class SKUCharacteristic(Base):
+    __tablename__ = "sku_characteristics"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    sku_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("skus.id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    sku: Mapped["SKU"] = relationship(back_populates="characteristics")
+
+
 class SKU(Base):
-    # Поля по SKUResponse из b2b/openapi.yaml.
-    # Создание SKU реализуется в US-B2B-02, здесь таблица нужна для skus в ответе.
     __tablename__ = "skus"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -98,6 +108,7 @@ class SKU(Base):
     price: Mapped[int] = mapped_column(Integer, nullable=False)
     discount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cost_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image: Mapped[str | None] = mapped_column(Text, nullable=True)
     stock_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reserved_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     article: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -107,6 +118,9 @@ class SKU(Base):
     )
 
     product: Mapped[Product] = relationship(back_populates="skus")
+    characteristics: Mapped[list["SKUCharacteristic"]] = relationship(
+        back_populates="sku", cascade="all, delete-orphan"
+    )
 
     @property
     def active_quantity(self) -> int:
