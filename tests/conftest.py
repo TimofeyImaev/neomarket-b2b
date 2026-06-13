@@ -4,6 +4,7 @@ import uuid
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["JWT_SECRET"] = "test-secret"
+os.environ["B2B_SERVICE_KEY"] = "test-service-key"
 
 import jwt
 import pytest
@@ -35,6 +36,7 @@ def _override_get_db():
 app.dependency_overrides[get_db] = _override_get_db
 
 CATEGORY_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+SERVICE_HEADERS = {"X-Service-Key": "test-service-key"}
 
 
 @pytest.fixture(autouse=True)

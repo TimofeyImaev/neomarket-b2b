@@ -1,9 +1,10 @@
 import uuid
 
 import jwt
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+import src.config as config
 from src.config import JWT_ALGORITHM, JWT_SECRET
 from src.errors import ApiError
 
@@ -30,3 +31,11 @@ def get_current_seller_id(
         return uuid.UUID(str(claims.get("sub")))
     except (ValueError, TypeError):
         raise ApiError(401, "UNAUTHORIZED", "Invalid sub claim")
+
+
+def verify_service_key(
+    x_service_key: str | None = Header(default=None, alias="X-Service-Key"),
+) -> None:
+    """Проверяет X-Service-Key для межсервисных вызовов (B2C → B2B)."""
+    if not config.B2B_SERVICE_KEY or x_service_key != config.B2B_SERVICE_KEY:
+        raise ApiError(401, "UNAUTHORIZED", "Missing or invalid X-Service-Key")

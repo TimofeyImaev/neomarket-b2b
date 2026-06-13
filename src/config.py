@@ -8,3 +8,5 @@ DATABASE_URL = os.getenv(
 )
 MODERATION_URL = os.getenv("MODERATION_URL", "")
 B2B_TO_MOD_KEY = os.getenv("B2B_TO_MOD_KEY", "")
+# Ключ, который межсервисные клиенты (B2C, Moderation) передают в X-Service-Key
+B2B_SERVICE_KEY = os.getenv("B2B_SERVICE_KEY", "")

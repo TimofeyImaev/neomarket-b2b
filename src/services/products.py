@@ -1,10 +1,12 @@
 import uuid
 
 from slugify import slugify
+from sqlalchemy import and_, exists
 from sqlalchemy.orm import Session
 
 from src.errors import ApiError
 from src.models import Category, Product, ProductCharacteristic, ProductImage
+from src.models.product import SKU
 from src.schemas.product import ProductCreateIn
 
 
@@ -61,3 +63,21 @@ def get_product(db: Session, product_id: str, seller_id: uuid.UUID) -> Product:
     if product is None or product.seller_id != str(seller_id):
         raise ApiError(404, "NOT_FOUND", "Product not found")
     return product
+
+
+def get_catalog(db: Session, ids: list[str] | None = None) -> list[Product]:
+    # Только MODERATED + not deleted + есть SKU с active_quantity > 0
+    has_in_stock = exists().where(
+        and_(
+            SKU.product_id == Product.id,
+            (SKU.stock_quantity - SKU.reserved_quantity) > 0,
+        )
+    )
+    query = db.query(Product).filter(
+        Product.status == "MODERATED",
+        Product.deleted == False,
+        has_in_stock,
+    )
+    if ids:
+        query = query.filter(Product.id.in_(ids))
+    return query.all()
