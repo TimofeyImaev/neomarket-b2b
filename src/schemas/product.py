@@ -95,3 +95,50 @@ class ProductOut(BaseModel):
     skus: list[SKUOut]
     created_at: str
     updated_at: str
+
+
+# ── US-B2B-05: GET /api/v1/products/{id} ─────────────────────────────────────
+
+class FieldReportOut(BaseModel):
+    field: str
+    message: str
+
+
+class BlockingReasonOut(BaseModel):
+    title: str
+    field_reports: list[FieldReportOut]
+
+
+class SKUDetailOut(BaseModel):
+    id: str
+    product_id: str
+    name: str
+    price: int
+    cost_price: int | None
+    discount: int
+    image: str | None
+    stock_quantity: int
+    reserved_quantity: int
+    active_quantity: int
+    article: str | None
+    characteristics: list[SKUCharacteristicOut]
+    created_at: str
+    updated_at: str
+
+
+class ProductDetailOut(BaseModel):
+    id: str
+    seller_id: str
+    category_id: str
+    title: str
+    slug: str
+    description: str
+    status: str
+    deleted: bool
+    blocking_reason: BlockingReasonOut | None
+    moderator_comment: str | None
+    images: list[ImageOut]
+    characteristics: list[CharacteristicOut]
+    skus: list[SKUDetailOut]
+    created_at: str
+    updated_at: str

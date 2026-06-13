@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from src.auth import get_current_seller_id
 from src.database import get_db
-from src.schemas.product import ProductCreateIn, ProductOut
-from src.services.products import create_product
+from src.schemas.product import ProductCreateIn, ProductDetailOut, ProductOut
+from src.services.products import create_product, get_product
 
 router = APIRouter(prefix="/api/v1", tags=["Products"])
 
@@ -52,6 +52,60 @@ def serialize_product(product) -> dict:
     }
 
 
+def serialize_product_detail(product) -> dict:
+    br = None
+    if product.blocking_reason is not None:
+        br = {
+            "title": product.blocking_reason.title,
+            "field_reports": [
+                {"field": fr.field, "message": fr.message}
+                for fr in product.blocking_reason.field_reports
+            ],
+        }
+    return {
+        "id": product.id,
+        "seller_id": product.seller_id,
+        "category_id": product.category_id,
+        "title": product.title,
+        "slug": product.slug,
+        "description": product.description,
+        "status": product.status,
+        "deleted": product.deleted,
+        "blocking_reason": br,
+        "moderator_comment": product.moderator_comment,
+        "images": [
+            {"id": i.id, "url": i.url, "ordering": i.ordering} for i in product.images
+        ],
+        "characteristics": [
+            {"id": c.id, "name": c.name, "value": c.value}
+            for c in product.characteristics
+        ],
+        "skus": [
+            {
+                "id": s.id,
+                "product_id": s.product_id,
+                "name": s.name,
+                "price": s.price,
+                "cost_price": s.cost_price,
+                "discount": s.discount,
+                "image": s.image,
+                "stock_quantity": s.stock_quantity,
+                "reserved_quantity": s.reserved_quantity,
+                "active_quantity": s.active_quantity,
+                "article": s.article,
+                "characteristics": [
+                    {"name": c.name, "value": c.value} for c in s.characteristics
+                ],
+                "created_at": s.created_at.isoformat(),
+                "updated_at": s.updated_at.isoformat(),
+            }
+            for s in product.skus
+        ],
+        "created_at": product.created_at.isoformat(),
+        "updated_at": product.updated_at.isoformat(),
+    }
+
+
 @router.post("/products", status_code=201, response_model=ProductOut)
 def post_product(
     body: ProductCreateIn,
@@ -59,3 +113,12 @@ def post_product(
     seller_id: uuid.UUID = Depends(get_current_seller_id),
 ):
     return serialize_product(create_product(db, body, seller_id))
+
+
+@router.get("/products/{product_id}", response_model=ProductDetailOut)
+def get_product_by_id(
+    product_id: str,
+    db: Session = Depends(get_db),
+    seller_id: uuid.UUID = Depends(get_current_seller_id),
+):
+    return serialize_product_detail(get_product(db, product_id, seller_id))
