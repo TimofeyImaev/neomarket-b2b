@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.auth import get_current_seller_id
 from src.database import get_db
 from src.schemas.product import ProductCreateIn, ProductDetailOut, ProductOut
+from src.errors import ApiError
 from src.services.products import create_product, get_product
 
 router = APIRouter(prefix="/api/v1", tags=["Products"])
@@ -56,12 +57,20 @@ def serialize_product_detail(product) -> dict:
     br = None
     if product.blocking_reason is not None:
         br = {
+            "id": product.blocking_reason.id,
             "title": product.blocking_reason.title,
-            "field_reports": [
-                {"field": fr.field, "message": fr.message}
-                for fr in product.blocking_reason.field_reports
-            ],
+            "comment": product.blocking_reason.comment,
         }
+    field_reports = []
+    if product.blocking_reason is not None:
+        field_reports = [
+            {
+                "field_name": fr.field,
+                "sku_id": fr.sku_id,
+                "comment": fr.message,
+            }
+            for fr in product.blocking_reason.field_reports
+        ]
     return {
         "id": product.id,
         "seller_id": product.seller_id,
@@ -71,7 +80,9 @@ def serialize_product_detail(product) -> dict:
         "description": product.description,
         "status": product.status,
         "deleted": product.deleted,
+        "blocked": product.blocked,
         "blocking_reason": br,
+        "field_reports": field_reports,
         "moderator_comment": product.moderator_comment,
         "images": [
             {"id": i.id, "url": i.url, "ordering": i.ordering} for i in product.images
@@ -122,3 +133,29 @@ def get_product_by_id(
     seller_id: uuid.UUID = Depends(get_current_seller_id),
 ):
     return serialize_product_detail(get_product(db, product_id, seller_id))
+
+
+@router.put("/products/{product_id}", status_code=200)
+def put_product(
+    product_id: str,
+    db: Session = Depends(get_db),
+    seller_id: uuid.UUID = Depends(get_current_seller_id),
+):
+    product = get_product(db, product_id, seller_id)
+    if product.status == "HARD_BLOCKED":
+        raise ApiError(403, "FORBIDDEN", "Cannot edit hard-blocked product")
+    return serialize_product_detail(product)
+
+
+@router.delete("/products/{product_id}", status_code=200)
+def delete_product(
+    product_id: str,
+    db: Session = Depends(get_db),
+    seller_id: uuid.UUID = Depends(get_current_seller_id),
+):
+    product = get_product(db, product_id, seller_id)
+    if product.status == "HARD_BLOCKED":
+        raise ApiError(403, "FORBIDDEN", "Cannot delete hard-blocked product")
+    product.deleted = True
+    db.commit()
+    return {"ok": True}

@@ -100,13 +100,15 @@ class ProductOut(BaseModel):
 # ── US-B2B-05: GET /api/v1/products/{id} ─────────────────────────────────────
 
 class FieldReportOut(BaseModel):
-    field: str
-    message: str
+    field_name: str
+    sku_id: str | None
+    comment: str
 
 
 class BlockingReasonOut(BaseModel):
+    id: str
     title: str
-    field_reports: list[FieldReportOut]
+    comment: str | None
 
 
 class SKUDetailOut(BaseModel):
@@ -135,7 +137,9 @@ class ProductDetailOut(BaseModel):
     description: str
     status: str
     deleted: bool
+    blocked: bool
     blocking_reason: BlockingReasonOut | None
+    field_reports: list[FieldReportOut]
     moderator_comment: str | None
     images: list[ImageOut]
     characteristics: list[CharacteristicOut]
@@ -197,5 +201,41 @@ class ReserveRequest(BaseModel):
 class UnreserveRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    idempotency_key: str
+    # Канон B2B-8 использует order_id как ключ идемпотентности для unreserve
+    idempotency_key: str | None = None
+    order_id: str | None = None
     items: list[ReserveItemIn]
+
+    @property
+    def effective_key(self) -> str:
+        """order_id (канон) или idempotency_key — принимаем оба."""
+        return self.order_id or self.idempotency_key or ""
+
+
+# ── US-B2B-09: входящее событие от Moderation ────────────────────────────────
+
+class BlockingReasonEventIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    title: str
+    comment: str | None = None
+
+
+class FieldReportEventIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    field_name: str
+    sku_id: str | None = None
+    comment: str
+
+
+class ModerationEventIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    idempotency_key: str
+    product_id: str
+    status: str  # MODERATED | BLOCKED
+    hard_block: bool = False
+    blocking_reason: BlockingReasonEventIn | None = None
+    field_reports: list[FieldReportEventIn] = []
