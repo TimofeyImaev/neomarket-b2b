@@ -176,3 +176,26 @@ class CatalogProductOut(BaseModel):
 class CatalogResponse(BaseModel):
     items: list[CatalogProductOut]
     total: int
+
+
+# ── US-B2B-08: POST /api/v1/reserve и POST /api/v1/unreserve ─────────────────
+
+class ReserveItemIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    sku_id: str
+    quantity: int
+
+
+class ReserveRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    idempotency_key: str
+    items: list[ReserveItemIn]
+
+
+class UnreserveRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    idempotency_key: str
+    items: list[ReserveItemIn]

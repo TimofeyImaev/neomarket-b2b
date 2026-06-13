@@ -7,6 +7,7 @@ from src.database import Base, engine
 from src.errors import ApiError, api_error_handler, validation_error_handler
 from src.routes.catalog import router as catalog_router
 from src.routes.products import router as products_router
+from src.routes.reserve import router as reserve_router
 from src.routes.skus import router as skus_router
 
 
@@ -22,6 +23,7 @@ app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(products_router)
 app.include_router(skus_router)
+app.include_router(reserve_router)
 app.include_router(catalog_router)
 
 
