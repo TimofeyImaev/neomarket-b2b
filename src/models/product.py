@@ -155,3 +155,14 @@ class SKU(Base):
     @property
     def active_quantity(self) -> int:
         return self.stock_quantity - self.reserved_quantity
+
+
+class ReservationLog(Base):
+    __tablename__ = "reservation_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    idempotency_key: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True, index=True
+    )
+    operation: Mapped[str] = mapped_column(String(16), nullable=False)  # RESERVE | UNRESERVE
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

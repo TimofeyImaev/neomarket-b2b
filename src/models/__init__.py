@@ -7,6 +7,7 @@ from src.models.product import (
     Product,
     ProductCharacteristic,
     ProductImage,
+    ReservationLog,
 )
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     "Product",
     "ProductCharacteristic",
     "ProductImage",
+    "ReservationLog",
     "SKU",
     "SKUCharacteristic",
 ]
