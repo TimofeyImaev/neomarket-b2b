@@ -121,7 +121,7 @@ def test_unreserve_restores_quantities(client):
 
     resp = client.post(
         "/api/v1/unreserve",
-        json={"idempotency_key": str(uuid.uuid4()), "items": [{"sku_id": sku_id, "quantity": 3}]},
+        json={"order_id": str(uuid.uuid4()), "items": [{"sku_id": sku_id, "quantity": 3}]},
         headers=SERVICE_HEADERS,
     )
     assert resp.status_code == 200

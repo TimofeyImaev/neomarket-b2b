@@ -30,6 +30,7 @@ class BlockingReason(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     field_reports: Mapped[list["FieldReport"]] = relationship(
         back_populates="blocking_reason", cascade="all, delete-orphan"
@@ -46,6 +47,7 @@ class FieldReport(Base):
     )
     field: Mapped[str] = mapped_column(String(255), nullable=False)
     message: Mapped[str] = mapped_column(String(500), nullable=False)
+    sku_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     blocking_reason: Mapped[BlockingReason] = relationship(back_populates="field_reports")
 
@@ -63,6 +65,7 @@ class Product(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="CREATED")
     deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     blocking_reason_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("blocking_reasons.id"), nullable=True
     )
@@ -165,4 +168,15 @@ class ReservationLog(Base):
         String(36), nullable=False, unique=True, index=True
     )
     operation: Mapped[str] = mapped_column(String(16), nullable=False)  # RESERVE | UNRESERVE
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ModerationEventLog(Base):
+    __tablename__ = "moderation_event_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    idempotency_key: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True, index=True
+    )
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

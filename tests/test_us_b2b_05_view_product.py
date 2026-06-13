@@ -43,10 +43,13 @@ def test_get_moderated_product_returns_full_payload(client):
 
     assert body["status"] == "MODERATED"
     assert body["blocking_reason"] is None
+    assert body["blocked"] is False
+    assert body["field_reports"] == []
     for field in (
         "id", "seller_id", "category_id", "title", "slug", "description",
-        "status", "deleted", "blocking_reason", "moderator_comment",
-        "images", "characteristics", "skus", "created_at", "updated_at",
+        "status", "deleted", "blocked", "blocking_reason", "field_reports",
+        "moderator_comment", "images", "characteristics", "skus",
+        "created_at", "updated_at",
     ):
         assert field in body, f"missing field: {field}"
 
@@ -65,6 +68,7 @@ def test_get_blocked_product_returns_blocking_reason_and_field_reports(client):
 
     product = db.get(Product, product_id)
     product.status = "BLOCKED"
+    product.blocked = True
     product.blocking_reason_id = br.id
     db.commit()
     db.close()
@@ -74,10 +78,12 @@ def test_get_blocked_product_returns_blocking_reason_and_field_reports(client):
     body = resp.json()
 
     assert body["status"] == "BLOCKED"
+    assert body["blocked"] is True
     assert body["blocking_reason"]["title"] == "Нарушение правил площадки"
-    reports = body["blocking_reason"]["field_reports"]
+    # field_reports — top-level поле продукта (не вложено в blocking_reason)
+    reports = body["field_reports"]
     assert len(reports) == 2
-    fields = {r["field"] for r in reports}
+    fields = {r["field_name"] for r in reports}
     assert "title" in fields
     assert "description" in fields
 

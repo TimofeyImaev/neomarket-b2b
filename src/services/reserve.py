@@ -76,7 +76,10 @@ def reserve_skus(db: Session, data: ReserveRequest) -> None:
 
 
 def unreserve_skus(db: Session, data: UnreserveRequest) -> None:
-    if db.query(ReservationLog).filter_by(idempotency_key=data.idempotency_key).first():
+    key = data.effective_key
+    if not key:
+        raise ApiError(400, "INVALID_REQUEST", "order_id or idempotency_key is required")
+    if db.query(ReservationLog).filter_by(idempotency_key=key).first():
         return
 
     if not data.items:
@@ -98,5 +101,5 @@ def unreserve_skus(db: Session, data: UnreserveRequest) -> None:
         sku = skus[item.sku_id]
         sku.reserved_quantity = max(0, sku.reserved_quantity - item.quantity)
 
-    db.add(ReservationLog(idempotency_key=data.idempotency_key, operation="UNRESERVE"))
+    db.add(ReservationLog(idempotency_key=key, operation="UNRESERVE"))
     db.commit()
