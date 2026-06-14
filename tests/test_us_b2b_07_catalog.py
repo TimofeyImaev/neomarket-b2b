@@ -8,6 +8,8 @@ from unittest.mock import patch
 from tests.conftest import SERVICE_HEADERS, TestingSession, auth_headers, valid_payload
 from src.models.product import Product, SKU
 
+CATALOG_URL = "/api/v1/public/products"
+
 
 def _create_moderated_product_with_stock(client) -> tuple[str, str]:
     seller_headers = auth_headers(str(uuid.uuid4()))
@@ -48,7 +50,7 @@ def _create_moderated_product_with_stock(client) -> tuple[str, str]:
 def test_catalog_returns_moderated_in_stock_products(client):
     product_id, _ = _create_moderated_product_with_stock(client)
 
-    resp = client.get("/api/v1/products", headers=SERVICE_HEADERS)
+    resp = client.get(CATALOG_URL, headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     body = resp.json()
     assert "items" in body
@@ -65,14 +67,14 @@ def test_catalog_excludes_hard_blocked(client):
     db.commit()
     db.close()
 
-    resp = client.get("/api/v1/products", headers=SERVICE_HEADERS)
+    resp = client.get(CATALOG_URL, headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     ids = [p["id"] for p in resp.json()["items"]]
     assert product_id not in ids
 
 
 def test_catalog_missing_service_key_returns_401(client):
-    resp = client.get("/api/v1/products")
+    resp = client.get(CATALOG_URL)
     assert resp.status_code == 401
     assert resp.json()["code"] == "UNAUTHORIZED"
 
@@ -80,13 +82,17 @@ def test_catalog_missing_service_key_returns_401(client):
 def test_catalog_response_has_no_cost_price(client):
     product_id, _ = _create_moderated_product_with_stock(client)
 
-    resp = client.get("/api/v1/products", headers=SERVICE_HEADERS)
+    resp = client.get(CATALOG_URL, headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     items = resp.json()["items"]
     target = next(p for p in items if p["id"] == product_id)
-    for sku in target["skus"]:
-        assert "cost_price" not in sku
-        assert "reserved_quantity" not in sku
+    # Public schema: no seller-private fields
+    assert "cost_price" not in target
+    assert "reserved_quantity" not in target
+    assert "seller_id" not in target
+    # Required public fields present
+    for field in ("id", "title", "slug", "status", "category_id", "created_at"):
+        assert field in target, f"missing field: {field}"
 
 
 def test_batch_ids_returns_visible_subset(client):
@@ -98,7 +104,7 @@ def test_batch_ids_returns_visible_subset(client):
 
     random_id = str(uuid.uuid4())
 
-    resp = client.get(f"/api/v1/products?ids={visible_id},{hidden_id},{random_id}", headers=SERVICE_HEADERS)
+    resp = client.get(f"{CATALOG_URL}?ids={visible_id},{hidden_id},{random_id}", headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     ids = [p["id"] for p in resp.json()["items"]]
     assert visible_id in ids
@@ -117,7 +123,7 @@ def test_catalog_excludes_out_of_stock(client):
     db.commit()
     db.close()
 
-    resp = client.get("/api/v1/products", headers=SERVICE_HEADERS)
+    resp = client.get(CATALOG_URL, headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     ids = [p["id"] for p in resp.json()["items"]]
     assert product_id not in ids
@@ -132,7 +138,7 @@ def test_catalog_excludes_deleted(client):
     db.commit()
     db.close()
 
-    resp = client.get("/api/v1/products", headers=SERVICE_HEADERS)
+    resp = client.get(CATALOG_URL, headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     ids = [p["id"] for p in resp.json()["items"]]
     assert product_id not in ids

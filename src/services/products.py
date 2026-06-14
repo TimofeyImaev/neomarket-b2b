@@ -1,7 +1,7 @@
 import uuid
 
 from slugify import slugify
-from sqlalchemy import and_, exists
+from sqlalchemy import and_, exists, func
 from sqlalchemy.orm import Session
 
 from src.errors import ApiError
@@ -14,44 +14,36 @@ def _invalid(message: str) -> ApiError:
     return ApiError(400, "INVALID_REQUEST", message)
 
 
-def _validate(db: Session, data: ProductCreateIn) -> None:
-    if not data.title or not data.title.strip():
-        raise _invalid("title is required")
-    if len(data.title) > 255:
-        raise _invalid("title must be 1-255 characters")
-    if not data.description or not data.description.strip():
-        raise _invalid("description is required")
-    if len(data.description) > 5000:
-        raise _invalid("description must be 1-5000 characters")
+def create_product(db: Session, data: ProductCreateIn, seller_id: uuid.UUID) -> Product:
     if not data.category_id:
         raise _invalid("category_id is required")
     try:
         uuid.UUID(data.category_id)
     except ValueError:
         raise _invalid("category_id must be a valid UUID")
+    if not data.title or not data.title.strip():
+        raise _invalid("title is required")
     if not data.images:
-        raise _invalid("At least one image is required")
-    if any(not img.url or not img.url.strip() for img in data.images):
-        raise _invalid("images url is required")
+        raise _invalid("at least one image is required")
     if db.get(Category, data.category_id) is None:
-        raise _invalid("Category not found")
+        raise _invalid("category not found or invalid")
 
-
-def create_product(db: Session, data: ProductCreateIn, seller_id: uuid.UUID) -> Product:
-    _validate(db, data)
-
+    slug = slugify(data.title)
     product = Product(
         seller_id=str(seller_id),
         category_id=data.category_id,
         title=data.title.strip(),
-        slug=data.slug or f"{slugify(data.title)[:280]}-{uuid.uuid4().hex[:8]}",
-        description=data.description.strip(),
+        slug=slug,
+        description=data.description or "",
     )
-    product.images = [ProductImage(url=i.url, ordering=i.ordering) for i in data.images]
-    product.characteristics = [
-        ProductCharacteristic(name=c.name, value=c.value) for c in data.characteristics
-    ]
     db.add(product)
+    db.flush()
+
+    for img in data.images or []:
+        db.add(ProductImage(product_id=product.id, url=img.url, ordering=img.ordering))
+    for ch in data.characteristics or []:
+        db.add(ProductCharacteristic(product_id=product.id, name=ch.name, value=ch.value))
+
     db.commit()
     db.refresh(product)
     return product
@@ -59,14 +51,21 @@ def create_product(db: Session, data: ProductCreateIn, seller_id: uuid.UUID) -> 
 
 def get_product(db: Session, product_id: str, seller_id: uuid.UUID) -> Product:
     product = db.get(Product, product_id)
-    # 404 для несуществующего и чужого товара — не раскрываем существование
     if product is None or product.seller_id != str(seller_id):
         raise ApiError(404, "NOT_FOUND", "Product not found")
+    db.refresh(product)
     return product
 
 
-def get_catalog(db: Session, ids: list[str] | None = None) -> list[Product]:
-    # Только MODERATED + not deleted + есть SKU с active_quantity > 0
+def get_catalog(
+    db: Session,
+    ids: list[str] | None = None,
+    category_id: str | None = None,
+    search: str | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
+) -> list[Product]:
+    # Only MODERATED + not deleted + has SKU with available stock
     has_in_stock = exists().where(
         and_(
             SKU.product_id == Product.id,
@@ -80,4 +79,19 @@ def get_catalog(db: Session, ids: list[str] | None = None) -> list[Product]:
     )
     if ids:
         query = query.filter(Product.id.in_(ids))
+    if category_id:
+        query = query.filter(Product.category_id == category_id)
+    if search:
+        query = query.filter(Product.title.ilike(f"%{search}%"))
+    if min_price is not None or max_price is not None:
+        min_sku_price = (
+            db.query(func.min(SKU.price))
+            .filter(SKU.product_id == Product.id)
+            .correlate(Product)
+            .scalar_subquery()
+        )
+        if min_price is not None:
+            query = query.filter(min_sku_price >= min_price)
+        if max_price is not None:
+            query = query.filter(min_sku_price <= max_price)
     return query.all()

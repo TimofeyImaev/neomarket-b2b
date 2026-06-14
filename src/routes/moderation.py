@@ -9,11 +9,10 @@ from src.services.moderation import apply_moderation_decision
 router = APIRouter(prefix="/api/v1", tags=["Moderation Events"])
 
 
-@router.post("/events/moderation", status_code=200)
+@router.post("/moderation/events", status_code=204)
 def post_moderation_event(
     body: ModerationEventIn,
     db: Session = Depends(get_db),
     _: None = Depends(verify_service_key),
 ):
     apply_moderation_decision(db, body)
-    return {"status": "ok"}

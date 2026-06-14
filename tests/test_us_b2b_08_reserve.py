@@ -53,7 +53,7 @@ def _reserve_payload(sku_id: str, quantity: int = 3, key: str | None = None) -> 
 def test_reserve_all_skus_succeeds(client):
     _, sku_id = _create_sku_with_stock(client, stock=10)
 
-    resp = client.post("/api/v1/reserve", json=_reserve_payload(sku_id, 3), headers=SERVICE_HEADERS)
+    resp = client.post("/api/v1/inventory/reserve", json=_reserve_payload(sku_id, 3), headers=SERVICE_HEADERS)
     assert resp.status_code == 200
 
     db = TestingSession()
@@ -68,7 +68,7 @@ def test_partial_insufficient_stock_returns_409_all_rollback(client):
     _, sku_id_2 = _create_sku_with_stock(client, stock=2)
 
     resp = client.post(
-        "/api/v1/reserve",
+        "/api/v1/inventory/reserve",
         json={
             "idempotency_key": str(uuid.uuid4()),
             "items": [
@@ -93,10 +93,10 @@ def test_idempotent_reserve_returns_200_without_double_deduction(client):
     _, sku_id = _create_sku_with_stock(client, stock=10)
     key = str(uuid.uuid4())
 
-    resp1 = client.post("/api/v1/reserve", json=_reserve_payload(sku_id, 3, key), headers=SERVICE_HEADERS)
+    resp1 = client.post("/api/v1/inventory/reserve", json=_reserve_payload(sku_id, 3, key), headers=SERVICE_HEADERS)
     assert resp1.status_code == 200
 
-    resp2 = client.post("/api/v1/reserve", json=_reserve_payload(sku_id, 3, key), headers=SERVICE_HEADERS)
+    resp2 = client.post("/api/v1/inventory/reserve", json=_reserve_payload(sku_id, 3, key), headers=SERVICE_HEADERS)
     assert resp2.status_code == 200
 
     db = TestingSession()
@@ -109,7 +109,7 @@ def test_sku_out_of_stock_event_emitted(client):
     _, sku_id = _create_sku_with_stock(client, stock=3)
 
     with patch("src.services.reserve._send_out_of_stock_event") as mock_event:
-        resp = client.post("/api/v1/reserve", json=_reserve_payload(sku_id, 3), headers=SERVICE_HEADERS)
+        resp = client.post("/api/v1/inventory/reserve", json=_reserve_payload(sku_id, 3), headers=SERVICE_HEADERS)
     assert resp.status_code == 200
     mock_event.assert_called_once_with(sku_id)
 
@@ -117,10 +117,10 @@ def test_sku_out_of_stock_event_emitted(client):
 def test_unreserve_restores_quantities(client):
     _, sku_id = _create_sku_with_stock(client, stock=10)
 
-    client.post("/api/v1/reserve", json=_reserve_payload(sku_id, 5), headers=SERVICE_HEADERS)
+    client.post("/api/v1/inventory/reserve", json=_reserve_payload(sku_id, 5), headers=SERVICE_HEADERS)
 
     resp = client.post(
-        "/api/v1/unreserve",
+        "/api/v1/inventory/unreserve",
         json={"order_id": str(uuid.uuid4()), "items": [{"sku_id": sku_id, "quantity": 3}]},
         headers=SERVICE_HEADERS,
     )
@@ -136,13 +136,13 @@ def test_unreserve_restores_quantities(client):
 # ── Дополнительные сценарии ───────────────────────────────────────────────────
 
 def test_reserve_missing_service_key_returns_401(client):
-    resp = client.post("/api/v1/reserve", json={"idempotency_key": str(uuid.uuid4()), "items": []})
+    resp = client.post("/api/v1/inventory/reserve", json={"idempotency_key": str(uuid.uuid4()), "items": []})
     assert resp.status_code == 401
 
 
 def test_reserve_nonexistent_sku_returns_404(client):
     resp = client.post(
-        "/api/v1/reserve",
+        "/api/v1/inventory/reserve",
         json=_reserve_payload(str(uuid.uuid4()), 1),
         headers=SERVICE_HEADERS,
     )
@@ -154,5 +154,5 @@ def test_out_of_stock_event_not_emitted_when_stock_remains(client):
     _, sku_id = _create_sku_with_stock(client, stock=10)
 
     with patch("src.services.reserve._send_out_of_stock_event") as mock_event:
-        client.post("/api/v1/reserve", json=_reserve_payload(sku_id, 3), headers=SERVICE_HEADERS)
+        client.post("/api/v1/inventory/reserve", json=_reserve_payload(sku_id, 3), headers=SERVICE_HEADERS)
     mock_event.assert_not_called()

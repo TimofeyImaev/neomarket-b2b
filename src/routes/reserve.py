@@ -9,7 +9,7 @@ from src.services.reserve import reserve_skus, unreserve_skus
 router = APIRouter(prefix="/api/v1", tags=["Reserve"])
 
 
-@router.post("/reserve", status_code=200)
+@router.post("/inventory/reserve", status_code=200)
 def post_reserve(
     body: ReserveRequest,
     db: Session = Depends(get_db),
@@ -19,7 +19,7 @@ def post_reserve(
     return {"status": "ok"}
 
 
-@router.post("/unreserve", status_code=200)
+@router.post("/inventory/unreserve", status_code=200)
 def post_unreserve(
     body: UnreserveRequest,
     db: Session = Depends(get_db),

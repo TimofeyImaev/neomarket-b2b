@@ -97,7 +97,7 @@ class ProductOut(BaseModel):
     updated_at: str
 
 
-# ── US-B2B-05: GET /api/v1/products/{id} ─────────────────────────────────────
+# US-B2B-05: GET /api/v1/products/{id}
 
 class FieldReportOut(BaseModel):
     field_name: str
@@ -148,10 +148,9 @@ class ProductDetailOut(BaseModel):
     updated_at: str
 
 
-# ── US-B2B-07: GET /api/v1/products (catalog for B2C) ────────────────────────
+# US-B2B-07: GET /api/v1/public/products (catalog for B2C)
 
 class CatalogSKUOut(BaseModel):
-    """SKU в режиме каталога — без cost_price и reserved_quantity."""
     id: str
     product_id: str
     name: str
@@ -182,7 +181,7 @@ class CatalogResponse(BaseModel):
     total: int
 
 
-# ── US-B2B-08: POST /api/v1/reserve и POST /api/v1/unreserve ─────────────────
+# US-B2B-08: POST /api/v1/inventory/reserve and /inventory/unreserve
 
 class ReserveItemIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -201,26 +200,16 @@ class ReserveRequest(BaseModel):
 class UnreserveRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    # Канон B2B-8 использует order_id как ключ идемпотентности для unreserve
     idempotency_key: str | None = None
     order_id: str | None = None
     items: list[ReserveItemIn]
 
     @property
     def effective_key(self) -> str:
-        """order_id (канон) или idempotency_key — принимаем оба."""
         return self.order_id or self.idempotency_key or ""
 
 
-# ── US-B2B-09: входящее событие от Moderation ────────────────────────────────
-
-class BlockingReasonEventIn(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    id: str
-    title: str
-    comment: str | None = None
-
+# US-B2B-09: incoming event from Moderation
 
 class FieldReportEventIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -235,7 +224,8 @@ class ModerationEventIn(BaseModel):
 
     idempotency_key: str
     product_id: str
-    status: str  # MODERATED | BLOCKED
+    event_type: str  # MODERATED | BLOCKED
+    occurred_at: str
     hard_block: bool = False
-    blocking_reason: BlockingReasonEventIn | None = None
+    blocking_reason_id: str | None = None
     field_reports: list[FieldReportEventIn] = []
