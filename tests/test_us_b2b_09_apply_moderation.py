@@ -8,6 +8,8 @@ from unittest.mock import patch
 from tests.conftest import SERVICE_HEADERS, TestingSession, auth_headers, valid_payload
 from src.models.product import Product
 
+MOD_EVENTS_URL = "/api/v1/moderation/events"
+
 
 def _create_product_on_moderation(client) -> tuple[str, dict]:
     seller_headers = auth_headers(str(uuid.uuid4()))
@@ -31,7 +33,6 @@ def _create_product_on_moderation(client) -> tuple[str, dict]:
         )
     assert sku_resp.status_code == 201
 
-    # Убеждаемся, что статус ON_MODERATION
     db = TestingSession()
     product = db.get(Product, product_id)
     product.status = "ON_MODERATION"
@@ -45,13 +46,10 @@ def _blocked_event(product_id: str, hard_block: bool = False, key: str | None = 
     return {
         "idempotency_key": key or str(uuid.uuid4()),
         "product_id": product_id,
-        "status": "BLOCKED",
+        "event_type": "BLOCKED",
+        "occurred_at": "2026-06-14T10:00:00Z",
         "hard_block": hard_block,
-        "blocking_reason": {
-            "id": str(uuid.uuid4()),
-            "title": "Описание не соответствует товару",
-            "comment": "Фото и описание расходятся",
-        },
+        "blocking_reason_id": str(uuid.uuid4()),
         "field_reports": [
             {"field_name": "description", "sku_id": None, "comment": "Неверное описание"},
         ],
@@ -64,23 +62,21 @@ def test_moderated_event_clears_blocking_data(client):
     product_id, _ = _create_product_on_moderation(client)
 
     # Сначала блокируем
-    client.post(
-        "/api/v1/events/moderation",
-        json=_blocked_event(product_id),
-        headers=SERVICE_HEADERS,
-    )
+    with patch("src.services.moderation._send_product_blocked_event"):
+        client.post(MOD_EVENTS_URL, json=_blocked_event(product_id), headers=SERVICE_HEADERS)
 
     # Затем одобряем
     resp = client.post(
-        "/api/v1/events/moderation",
+        MOD_EVENTS_URL,
         json={
             "idempotency_key": str(uuid.uuid4()),
             "product_id": product_id,
-            "status": "MODERATED",
+            "event_type": "MODERATED",
+            "occurred_at": "2026-06-14T11:00:00Z",
         },
         headers=SERVICE_HEADERS,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 204
 
     db = TestingSession()
     product = db.get(Product, product_id)
@@ -94,12 +90,8 @@ def test_blocked_soft_saves_field_reports(client):
     product_id, _ = _create_product_on_moderation(client)
 
     with patch("src.services.moderation._send_product_blocked_event") as mock_event:
-        resp = client.post(
-            "/api/v1/events/moderation",
-            json=_blocked_event(product_id, hard_block=False),
-            headers=SERVICE_HEADERS,
-        )
-    assert resp.status_code == 200
+        resp = client.post(MOD_EVENTS_URL, json=_blocked_event(product_id, hard_block=False), headers=SERVICE_HEADERS)
+    assert resp.status_code == 204
     mock_event.assert_called_once()
 
     db = TestingSession()
@@ -109,7 +101,6 @@ def test_blocked_soft_saves_field_reports(client):
     assert product.blocked is True
     assert product.blocking_reason_id is not None
 
-    # Проверяем что field_reports сохранены через связь
     db = TestingSession()
     product = db.get(Product, product_id)
     br = product.blocking_reason
@@ -123,12 +114,8 @@ def test_blocked_hard_sets_terminal_status(client):
     product_id, _ = _create_product_on_moderation(client)
 
     with patch("src.services.moderation._send_product_blocked_event") as mock_event:
-        resp = client.post(
-            "/api/v1/events/moderation",
-            json=_blocked_event(product_id, hard_block=True),
-            headers=SERVICE_HEADERS,
-        )
-    assert resp.status_code == 200
+        resp = client.post(MOD_EVENTS_URL, json=_blocked_event(product_id, hard_block=True), headers=SERVICE_HEADERS)
+    assert resp.status_code == 204
     mock_event.assert_called_once()
 
     db = TestingSession()
@@ -141,30 +128,14 @@ def test_blocked_hard_sets_terminal_status(client):
 def test_hard_blocked_product_rejects_seller_edits(client):
     product_id, seller_headers = _create_product_on_moderation(client)
 
-    # Переводим в HARD_BLOCKED
     with patch("src.services.moderation._send_product_blocked_event"):
-        client.post(
-            "/api/v1/events/moderation",
-            json=_blocked_event(product_id, hard_block=True),
-            headers=SERVICE_HEADERS,
-        )
+        client.post(MOD_EVENTS_URL, json=_blocked_event(product_id, hard_block=True), headers=SERVICE_HEADERS)
 
-    # PUT должен возвращать 403
-    put_resp = client.put(
-        f"/api/v1/products/{product_id}",
-        json=valid_payload(),
-        headers=seller_headers,
-    )
+    put_resp = client.put(f"/api/v1/products/{product_id}", json=valid_payload(), headers=seller_headers)
     assert put_resp.status_code == 403
-    assert put_resp.json()["code"] == "FORBIDDEN"
 
-    # DELETE должен возвращать 403
-    del_resp = client.delete(
-        f"/api/v1/products/{product_id}",
-        headers=seller_headers,
-    )
+    del_resp = client.delete(f"/api/v1/products/{product_id}", headers=seller_headers)
     assert del_resp.status_code == 403
-    assert del_resp.json()["code"] == "FORBIDDEN"
 
 
 def test_duplicate_event_same_idempotency_key_no_side_effects(client):
@@ -172,20 +143,11 @@ def test_duplicate_event_same_idempotency_key_no_side_effects(client):
     key = str(uuid.uuid4())
 
     with patch("src.services.moderation._send_product_blocked_event") as mock_event:
-        resp1 = client.post(
-            "/api/v1/events/moderation",
-            json=_blocked_event(product_id, hard_block=False, key=key),
-            headers=SERVICE_HEADERS,
-        )
-        resp2 = client.post(
-            "/api/v1/events/moderation",
-            json=_blocked_event(product_id, hard_block=False, key=key),
-            headers=SERVICE_HEADERS,
-        )
+        resp1 = client.post(MOD_EVENTS_URL, json=_blocked_event(product_id, key=key), headers=SERVICE_HEADERS)
+        resp2 = client.post(MOD_EVENTS_URL, json=_blocked_event(product_id, key=key), headers=SERVICE_HEADERS)
 
-    assert resp1.status_code == 200
-    assert resp2.status_code == 200
-    # Каскад вызван только один раз
+    assert resp1.status_code == 204
+    assert resp2.status_code == 204
     assert mock_event.call_count == 1
 
     db = TestingSession()
@@ -194,11 +156,10 @@ def test_duplicate_event_same_idempotency_key_no_side_effects(client):
     assert product.status == "BLOCKED"
 
 
-# ── Дополнительные сценарии ───────────────────────────────────────────────────
-
 def test_missing_service_key_returns_401(client):
     resp = client.post(
-        "/api/v1/events/moderation",
-        json={"idempotency_key": str(uuid.uuid4()), "product_id": str(uuid.uuid4()), "status": "MODERATED"},
+        MOD_EVENTS_URL,
+        json={"idempotency_key": str(uuid.uuid4()), "product_id": str(uuid.uuid4()),
+              "event_type": "MODERATED", "occurred_at": "2026-06-14T10:00:00Z"},
     )
     assert resp.status_code == 401

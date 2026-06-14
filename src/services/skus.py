@@ -9,24 +9,35 @@ from src.errors import ApiError
 from src.models.product import SKU, SKUCharacteristic, Product
 from src.schemas.product import SKUCreateIn
 
+# Maps internal event name → OpenAPI event_type enum
+_EVENT_TYPE_MAP = {
+    "CREATED": "PRODUCT_CREATED",
+    "EDITED": "PRODUCT_EDITED",
+    "DELETED": "PRODUCT_DELETED",
+}
+
 
 def _invalid(message: str) -> ApiError:
     return ApiError(400, "INVALID_REQUEST", message)
 
 
-def _send_moderation_event(product_id: str, seller_id: str, event: str) -> None:
+def _send_moderation_event(product_id: str, seller_id: str, event: str, product_json: dict | None = None) -> None:
     if not config.MODERATION_URL or not config.B2B_TO_MOD_KEY:
         return
+    event_type = _EVENT_TYPE_MAP.get(event, event)
     payload = {
+        "event_type": event_type,
         "idempotency_key": str(uuid.uuid4()),
-        "product_id": product_id,
-        "seller_id": seller_id,
-        "event": event,
-        "date": datetime.now(timezone.utc).isoformat(),
+        "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "payload": {
+            "product_id": product_id,
+            "seller_id": seller_id,
+            "json_after": product_json or {},
+        },
     }
     try:
         httpx.post(
-            f"{config.MODERATION_URL}/api/v1/events/product",
+            f"{config.MODERATION_URL}/api/v1/b2b/events",
             json=payload,
             headers={"X-Service-Key": config.B2B_TO_MOD_KEY},
             timeout=5.0,
