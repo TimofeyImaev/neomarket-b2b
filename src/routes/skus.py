@@ -19,7 +19,9 @@ def serialize_sku(sku) -> dict:
         "price": sku.price,
         "cost_price": sku.cost_price,
         "discount": sku.discount,
-        "image": sku.image,
+        "images": [{"url": sku.image}] if sku.image else [],
+        "article": sku.article,
+        "stock_quantity": sku.stock_quantity,
         "active_quantity": sku.active_quantity,
         "reserved_quantity": sku.reserved_quantity,
         "characteristics": [
