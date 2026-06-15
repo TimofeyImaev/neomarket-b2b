@@ -130,7 +130,7 @@ def test_sku_response_shape(client):
     assert resp.status_code == 201
     body = resp.json()
     for field in ("id", "product_id", "name", "price", "cost_price", "discount",
-                  "image", "active_quantity", "reserved_quantity", "characteristics"):
+                  "images", "article", "stock_quantity", "active_quantity", "reserved_quantity", "characteristics"):
         assert field in body, f"missing field: {field}"
     assert body["active_quantity"] == 0
     assert body["reserved_quantity"] == 0
