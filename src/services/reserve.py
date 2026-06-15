@@ -10,18 +10,23 @@ from src.models.product import ReservationLog, SKU
 from src.schemas.product import ReserveRequest, UnreserveRequest
 
 
-def _send_out_of_stock_event(sku_id: str) -> None:
+def _send_out_of_stock_event(sku_id: str, product_id: str, available_quantity: int = 0) -> None:
     if not config.B2C_URL or not config.B2B_TO_B2C_KEY:
         return
+    now = datetime.now(timezone.utc).isoformat()
     payload = {
+        "event_type": "SKU_OUT_OF_STOCK",
         "idempotency_key": str(uuid.uuid4()),
-        "sku_id": sku_id,
-        "event": "SKU_OUT_OF_STOCK",
-        "date": datetime.now(timezone.utc).isoformat(),
+        "occurred_at": now,
+        "payload": {
+            "sku_id": sku_id,
+            "product_id": product_id,
+            "available_quantity": available_quantity,
+        },
     }
     try:
         httpx.post(
-            f"{config.B2C_URL}/api/v1/events/sku",
+            f"{config.B2C_URL}/api/v1/b2b/events",
             json=payload,
             headers={"X-Service-Key": config.B2B_TO_B2C_KEY},
             timeout=5.0,
@@ -61,18 +66,19 @@ def reserve_skus(db: Session, data: ReserveRequest) -> None:
             )
 
     # Применяем резервирование и фиксируем
-    out_of_stock: list[str] = []
+    out_of_stock: list[tuple[str, str, int]] = []
     for item in data.items:
         sku = skus[item.sku_id]
         sku.reserved_quantity += item.quantity
-        if sku.stock_quantity - sku.reserved_quantity == 0:
-            out_of_stock.append(sku.id)
+        remaining = sku.stock_quantity - sku.reserved_quantity
+        if remaining == 0:
+            out_of_stock.append((sku.id, sku.product_id, 0))
 
     db.add(ReservationLog(idempotency_key=data.idempotency_key, operation="RESERVE"))
     db.commit()
 
-    for sku_id in out_of_stock:
-        _send_out_of_stock_event(sku_id)
+    for sku_id, product_id, avail in out_of_stock:
+        _send_out_of_stock_event(sku_id, product_id, avail)
 
 
 def unreserve_skus(db: Session, data: UnreserveRequest) -> None:
