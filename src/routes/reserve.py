@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -16,7 +18,11 @@ def post_reserve(
     _: None = Depends(verify_service_key),
 ):
     reserve_skus(db, body)
-    return {"status": "ok"}
+    return {
+        "order_id": body.order_id,
+        "status": "RESERVED",
+        "reserved_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.post("/inventory/unreserve", status_code=200)

@@ -14,11 +14,10 @@ def _send_product_blocked_event(product: Product) -> None:
     if not config.B2C_URL or not config.B2B_TO_B2C_KEY:
         return
     payload = {
-        "idempotency_key": str(uuid.uuid4()),
         "event_type": "PRODUCT_BLOCKED",
-        "product_id": product.id,
-        "sku_ids": [s.id for s in product.skus],
+        "idempotency_key": str(uuid.uuid4()),
         "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "payload": {"product_id": product.id},
     }
     try:
         httpx.post(

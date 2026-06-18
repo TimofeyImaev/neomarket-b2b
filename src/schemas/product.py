@@ -28,6 +28,10 @@ class SKUCharacteristicOut(BaseModel):
     value: str
 
 
+class SKUImageOut(BaseModel):
+    url: str
+
+
 class SKUCreateOut(BaseModel):
     id: str
     product_id: str
@@ -35,7 +39,9 @@ class SKUCreateOut(BaseModel):
     price: int
     cost_price: int
     discount: int
-    image: str
+    images: list[SKUImageOut]
+    article: str | None = None
+    stock_quantity: int
     active_quantity: int
     reserved_quantity: int
     characteristics: list[SKUCharacteristicOut]
@@ -118,7 +124,7 @@ class SKUDetailOut(BaseModel):
     price: int
     cost_price: int | None
     discount: int
-    image: str | None
+    images: list[SKUImageOut] = []
     stock_quantity: int
     reserved_quantity: int
     active_quantity: int
@@ -194,6 +200,7 @@ class ReserveRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     idempotency_key: str
+    order_id: str
     items: list[ReserveItemIn]
 
 
@@ -201,7 +208,7 @@ class UnreserveRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     idempotency_key: str | None = None
-    order_id: str | None = None
+    order_id: str
     items: list[ReserveItemIn]
 
     @property
