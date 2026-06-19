@@ -148,7 +148,7 @@ def test_reserve_nonexistent_sku_returns_404(client):
     resp = client.post(
         "/api/v1/inventory/reserve",
         json=_reserve_payload(str(uuid.uuid4()), 1),
-        headrs=SERVICE_HEADERS,
+        headers=SERVICE_HEADERS,
     )
     assert resp.status_code == 404
     assert resp.json()["code"] == "NOT_FOUND"
