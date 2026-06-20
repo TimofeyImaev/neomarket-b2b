@@ -44,7 +44,7 @@ def _sku_payload(product_id: str) -> dict:
         "price": 12999000,
         "cost_price": 9500000,
         "discount": 0,
-        "image": "/s3/iphone15-black-256.jpg",
+        "images": [{"url": "/s3/iphone15-black-256.jpg", "ordering": 0}],
         "characteristics": [{"name": "Цвет", "value": "Чёрный"}],
     }
 
@@ -100,10 +100,26 @@ def test_add_sku_to_hard_blocked_returns_403(client):
 
 def test_missing_image_returns_400(client):
     product_id = _create_product(client)
-    payload = {k: v for k, v in _sku_payload(product_id).items() if k != "image"}
+    payload = {k: v for k, v in _sku_payload(product_id).items() if k != "images"}
     resp = client.post("/api/v1/skus", json=payload, headers=SELLER_HEADERS)
     assert resp.status_code == 400
     assert resp.json()["code"] == "INVALID_REQUEST"
+
+
+def test_sku_on_moderated_product_triggers_remoderation(client):
+    """Adding SKU to MODERATED product re-triggers moderation (b2b-flows.md:257-264)."""
+    product_id = _create_product(client, status="MODERATED")
+    with patch("src.services.skus._send_moderation_event") as mock_send:
+        resp = client.post("/api/v1/skus", json=_sku_payload(product_id), headers=SELLER_HEADERS)
+    assert resp.status_code == 201
+
+    db = TestingSession()
+    product = db.get(Product, product_id)
+    db.close()
+    assert product.status == "ON_MODERATION"
+    mock_send.assert_called_once()
+    _, _, event_arg = mock_send.call_args.args
+    assert event_arg == "EDITED"
 
 
 # ── Дополнительные сценарии ───────────────────────────────────────────────────
@@ -132,5 +148,9 @@ def test_sku_response_shape(client):
     for field in ("id", "product_id", "name", "price", "cost_price", "discount",
                   "images", "article", "stock_quantity", "active_quantity", "reserved_quantity", "characteristics"):
         assert field in body, f"missing field: {field}"
+    assert isinstance(body["images"], list)
+    if body["images"]:
+        img = body["images"][0]
+        assert "id" in img and "url" in img and "ordering" in img
     assert body["active_quantity"] == 0
     assert body["reserved_quantity"] == 0

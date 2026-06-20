@@ -17,10 +17,20 @@ class SKUCreateIn(BaseModel):
     product_id: str | None = None
     name: str | None = None
     price: int | None = None
-    cost_price: int | None = None
+    cost_price: int | None = None   # optional per openapi b2b:1459-1464
     discount: int = 0
-    image: str | None = None
+    image: str | None = None        # legacy single-image field (still accepted)
+    images: list[ImageIn] = Field(default_factory=list)  # spec: array of {url, ordering}
     characteristics: list[CharacteristicIn] = Field(default_factory=list)
+
+    @property
+    def effective_images(self) -> list[ImageIn]:
+        """Normalize: prefer images[], fall back to legacy image string."""
+        if self.images:
+            return self.images
+        if self.image:
+            return [ImageIn(url=self.image, ordering=0)]
+        return []
 
 
 class SKUCharacteristicOut(BaseModel):
@@ -29,7 +39,9 @@ class SKUCharacteristicOut(BaseModel):
 
 
 class SKUImageOut(BaseModel):
+    id: str
     url: str
+    ordering: int
 
 
 class SKUCreateOut(BaseModel):
@@ -37,7 +49,7 @@ class SKUCreateOut(BaseModel):
     product_id: str
     name: str
     price: int
-    cost_price: int
+    cost_price: int | None
     discount: int
     images: list[SKUImageOut]
     article: str | None = None

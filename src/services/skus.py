@@ -60,11 +60,16 @@ def create_sku(db: Session, data: SKUCreateIn, seller_id: uuid.UUID) -> SKU:
 
     if not data.name or not data.name.strip():
         raise _invalid("name is required")
-    if not data.image or not data.image.strip():
+
+    # Accept images[] (spec) or legacy image string
+    images = data.effective_images
+    if not images:
         raise _invalid("image is required")
+
     if data.price is None or data.price <= 0:
         raise _invalid("price must be a positive integer (kopecks)")
-    if data.cost_price is None or data.cost_price <= 0:
+    # cost_price is optional per openapi b2b:1459-1464; validate only if provided
+    if data.cost_price is not None and data.cost_price <= 0:
         raise _invalid("cost_price must be a positive integer (kopecks)")
     if data.discount < 0:
         raise _invalid("discount must be >= 0")
@@ -78,14 +83,22 @@ def create_sku(db: Session, data: SKUCreateIn, seller_id: uuid.UUID) -> SKU:
         price=data.price,
         cost_price=data.cost_price,
         discount=data.discount,
-        image=data.image.strip(),
+        image=images[0].url,  # store first image URL in legacy column
     )
     sku.characteristics = [
         SKUCharacteristic(name=c.name, value=c.value) for c in data.characteristics
     ]
     db.add(sku)
 
-    if is_first_sku and product.status == "CREATED":
+    if product.status in ("MODERATED", "BLOCKED"):
+        # Re-moderation: any new SKU on already-moderated product → back to review
+        # (b2b-flows.md:257-264)
+        product.status = "ON_MODERATION"
+        db.add(product)
+        db.commit()
+        db.refresh(sku)
+        _send_moderation_event(pid, sid, "EDITED")
+    elif is_first_sku and product.status == "CREATED":
         product.status = "ON_MODERATION"
         db.add(product)
         db.commit()
