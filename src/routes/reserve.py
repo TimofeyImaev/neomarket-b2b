@@ -9,6 +9,7 @@ from src.schemas.product import ReserveRequest, UnreserveRequest
 from src.services.reserve import reserve_skus, unreserve_skus
 
 router = APIRouter(prefix="/api/v1", tags=["Reserve"])
+# v2: canonical OpenAPI response shapes
 
 
 @router.post("/inventory/reserve", status_code=200)
