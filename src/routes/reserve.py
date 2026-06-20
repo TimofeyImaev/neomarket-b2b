@@ -32,4 +32,8 @@ def post_unreserve(
     _: None = Depends(verify_service_key),
 ):
     unreserve_skus(db, body)
-    return {"status": "ok"}
+    return {
+        "order_id": body.order_id,
+        "status": "UNRESERVED",
+        "processed_at": datetime.now(timezone.utc).isoformat(),
+    }
