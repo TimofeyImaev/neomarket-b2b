@@ -11,6 +11,11 @@ from src.services.skus import create_sku
 router = APIRouter(prefix="/api/v1", tags=["SKUs"])
 
 
+def _img_id(sku_id: str, ordering: int = 0) -> str:
+    """Deterministic UUID for a SKU image (SKU stores one image as a string)."""
+    return str(uuid.uuid5(uuid.NAMESPACE_OID, f"{sku_id}:img:{ordering}"))
+
+
 def serialize_sku(sku) -> dict:
     return {
         "id": sku.id,
@@ -19,7 +24,8 @@ def serialize_sku(sku) -> dict:
         "price": sku.price,
         "cost_price": sku.cost_price,
         "discount": sku.discount,
-        "images": [{"url": sku.image}] if sku.image else [],
+        # SKUImageResponse requires id, url, ordering (openapi b2b:1437-1443)
+        "images": [{"id": _img_id(sku.id, 0), "url": sku.image, "ordering": 0}] if sku.image else [],
         "article": sku.article,
         "stock_quantity": sku.stock_quantity,
         "active_quantity": sku.active_quantity,

@@ -99,7 +99,7 @@ def serialize_product_detail(product) -> dict:
                 "price": s.price,
                 "cost_price": s.cost_price,
                 "discount": s.discount,
-                "images": [{"url": s.image}] if s.image else [],
+                "images": [{"id": str(uuid.uuid5(uuid.NAMESPACE_OID, f"{s.id}:img:0")), "url": s.image, "ordering": 0}] if s.image else [],
                 "stock_quantity": s.stock_quantity,
                 "reserved_quantity": s.reserved_quantity,
                 "active_quantity": s.active_quantity,
