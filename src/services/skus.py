@@ -21,7 +21,7 @@ def _invalid(message: str) -> ApiError:
     return ApiError(400, "INVALID_REQUEST", message)
 
 
-def _send_moderation_event(product_id: str, seller_id: str, event: str, product_json: dict | None = None) -> None:
+def _send_moderation_event(product_id: str, seller_id: str, event: str, product_json: dict | None = None, json_before: dict | None = None) -> None:
     if not config.MODERATION_URL or not config.B2B_TO_MOD_KEY:
         return
     event_type = _EVENT_TYPE_MAP.get(event, event)
@@ -32,6 +32,7 @@ def _send_moderation_event(product_id: str, seller_id: str, event: str, product_
         "payload": {
             "product_id": product_id,
             "seller_id": seller_id,
+            "json_before": json_before or {},
             "json_after": product_json or {},
         },
     }
@@ -93,11 +94,13 @@ def create_sku(db: Session, data: SKUCreateIn, seller_id: uuid.UUID) -> SKU:
     if product.status in ("MODERATED", "BLOCKED"):
         # Re-moderation: any new SKU on already-moderated product → back to review
         # (b2b-flows.md:257-264)
+        # Capture json_before BEFORE commit while state is still accessible
+        product_snapshot = {"id": product.id, "status": product.status, "title": product.title}
         product.status = "ON_MODERATION"
         db.add(product)
         db.commit()
         db.refresh(sku)
-        _send_moderation_event(pid, sid, "EDITED")
+        _send_moderation_event(pid, sid, "EDITED", json_before=product_snapshot)
     elif is_first_sku and product.status == "CREATED":
         product.status = "ON_MODERATION"
         db.add(product)

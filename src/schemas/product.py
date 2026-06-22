@@ -57,6 +57,8 @@ class SKUCreateOut(BaseModel):
     active_quantity: int
     reserved_quantity: int
     characteristics: list[SKUCharacteristicOut]
+    created_at: str | None = None   # b2b/openapi.yaml:1504
+    updated_at: str | None = None   # b2b/openapi.yaml:1505
 
 
 class ProductCreateIn(BaseModel):

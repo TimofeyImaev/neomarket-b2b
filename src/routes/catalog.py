@@ -33,6 +33,48 @@ def _serialize_public(p) -> dict:
     }
 
 
+def _serialize_sku_public(s) -> dict:
+    """SKUPublicResponse — without cost_price and reserved_quantity."""
+    import uuid as _uuid
+    img_id = str(_uuid.uuid5(_uuid.NAMESPACE_OID, f"{s.id}:img:0"))
+    return {
+        "id": s.id,
+        "name": s.name,
+        "price": s.price,
+        "discount": s.discount,
+        "article": s.article,
+        "stock_quantity": s.stock_quantity,
+        "active_quantity": s.active_quantity,
+        "images": [{"id": img_id, "url": s.image, "ordering": 0}] if s.image else [],
+        "characteristics": [{"name": c.name, "value": c.value} for c in s.characteristics],
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    }
+
+
+def _serialize_full_public(p) -> dict:
+    """ProductPublicResponse — full format for batch endpoint (openapi b2b:1342-1353)."""
+    return {
+        "id": p.id,
+        "seller_id": p.seller_id,
+        "category_id": p.category_id,
+        "title": p.title,
+        "slug": p.slug,
+        "description": p.description,
+        "status": p.status,
+        "images": [
+            {"id": img.id, "url": img.url, "ordering": img.ordering}
+            for img in sorted(p.images, key=lambda i: i.ordering)
+        ],
+        "characteristics": [
+            {"name": c.name, "value": c.value} for c in p.characteristics
+        ],
+        "skus": [_serialize_sku_public(s) for s in p.skus],
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+    }
+
+
 @router.get("/public/products")
 def get_public_catalog(
     request: Request,
@@ -78,10 +120,10 @@ def batch_public_catalog(
     db: Session = Depends(get_db),
     _: None = Depends(verify_service_key),
 ):
-    """Returns a plain array of products (b2b/openapi.yaml:835-838)."""
+    """Returns a plain array of ProductPublicResponse (b2b/openapi.yaml:835-838)."""
     product_ids = body.get("product_ids", [])
     products = get_catalog(db, ids=product_ids if product_ids else None)
-    return [_serialize_public(p) for p in products]
+    return [_serialize_full_public(p) for p in products]
 
 
 @router.get("/public/skus/{sku_id}")
