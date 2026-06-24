@@ -34,6 +34,7 @@ class SKUCreateIn(BaseModel):
 
 
 class SKUCharacteristicOut(BaseModel):
+    id: str
     name: str
     value: str
 

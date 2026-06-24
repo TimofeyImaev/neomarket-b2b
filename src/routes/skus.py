@@ -31,7 +31,7 @@ def serialize_sku(sku) -> dict:
         "active_quantity": sku.active_quantity,
         "reserved_quantity": sku.reserved_quantity,
         "characteristics": [
-            {"name": c.name, "value": c.value} for c in sku.characteristics
+            {"id": c.id, "name": c.name, "value": c.value} for c in sku.characteristics
         ],
         "created_at": sku.created_at.isoformat() if sku.created_at else None,
         "updated_at": sku.updated_at.isoformat() if sku.updated_at else None,
