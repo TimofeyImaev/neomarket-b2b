@@ -46,7 +46,7 @@ def _serialize_sku_public(s) -> dict:
         "stock_quantity": s.stock_quantity,
         "active_quantity": s.active_quantity,
         "images": [{"id": img_id, "url": s.image, "ordering": 0}] if s.image else [],
-        "characteristics": [{"name": c.name, "value": c.value} for c in s.characteristics],
+        "characteristics": [{"id": c.id, "name": c.name, "value": c.value} for c in s.characteristics],
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
     }
@@ -67,7 +67,7 @@ def _serialize_full_public(p) -> dict:
             for img in sorted(p.images, key=lambda i: i.ordering)
         ],
         "characteristics": [
-            {"name": c.name, "value": c.value} for c in p.characteristics
+            {"id": c.id, "name": c.name, "value": c.value} for c in p.characteristics
         ],
         "skus": [_serialize_sku_public(s) for s in p.skus],
         "created_at": p.created_at.isoformat() if p.created_at else None,
@@ -79,7 +79,7 @@ def _serialize_full_public(p) -> dict:
 def get_public_catalog(
     request: Request,
     category_id: Annotated[str | None, Query()] = None,
-    search: Annotated[str | None, Query(alias="q")] = None,
+    search: Annotated[str | None, Query()] = None,
     sort: Annotated[str | None, Query()] = None,
     min_price: Annotated[int | None, Query()] = None,
     max_price: Annotated[int | None, Query()] = None,
@@ -139,16 +139,19 @@ def get_public_sku(
     sku = db.get(SKU, sku_id)
     if sku is None:
         raise ApiError(404, "NOT_FOUND", "SKU not found")
+    import uuid as _uuid
+    _img = str(_uuid.uuid5(_uuid.NAMESPACE_OID, f"{sku.id}:img:0"))
     return {
         "id": sku.id,
         "product_id": sku.product_id,
         "name": sku.name,
         "price": sku.price,
         "discount": sku.discount,
-        "stock_quantity": sku.active_quantity,   # available = stock - reserved
-        "images": [{"url": sku.image}] if sku.image else [],
+        "stock_quantity": sku.stock_quantity,    # складской остаток
+        "active_quantity": sku.active_quantity,  # доступный = stock - reserved
+        "images": [{"id": _img, "url": sku.image, "ordering": 0}] if sku.image else [],
         "article": sku.article,
         "characteristics": [
-            {"name": c.name, "value": c.value} for c in sku.characteristics
+            {"id": c.id, "name": c.name, "value": c.value} for c in sku.characteristics
         ],
     }
