@@ -142,3 +142,19 @@ def test_catalog_excludes_deleted(client):
     assert resp.status_code == 200
     ids = [p["id"] for p in resp.json()["items"]]
     assert product_id not in ids
+
+
+def test_batch_public_sku_includes_product_id(client):
+    """SKUPublicResponse requires product_id (openapi b2b) — must be present in batch output."""
+    product_id, _ = _create_moderated_product_with_stock(client)
+    resp = client.post(
+        "/api/v1/public/products/batch",
+        json={"product_ids": [product_id]},
+        headers=SERVICE_HEADERS,
+    )
+    assert resp.status_code == 200, resp.text
+    products = resp.json()
+    target = next(p for p in products if p["id"] == product_id)
+    assert target["skus"], "expected at least one sku in batch output"
+    for sku in target["skus"]:
+        assert sku.get("product_id") == product_id

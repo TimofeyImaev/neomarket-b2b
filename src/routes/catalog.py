@@ -39,6 +39,7 @@ def _serialize_sku_public(s) -> dict:
     img_id = str(_uuid.uuid5(_uuid.NAMESPACE_OID, f"{s.id}:img:0"))
     return {
         "id": s.id,
+        "product_id": s.product_id,   # REQUIRED by SKUPublicResponse (openapi b2b) — was missing in batch output
         "name": s.name,
         "price": s.price,
         "discount": s.discount,
@@ -84,7 +85,7 @@ def get_public_catalog(
     min_price: Annotated[int | None, Query()] = None,
     max_price: Annotated[int | None, Query()] = None,
     ids: Annotated[str | None, Query(description="Comma-separated product IDs")] = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 20,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,   # openapi maximum is 100
     offset: Annotated[int, Query(ge=0)] = 0,
     db: Session = Depends(get_db),
     _: None = Depends(verify_service_key),
