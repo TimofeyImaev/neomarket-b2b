@@ -98,12 +98,34 @@ def test_add_sku_to_hard_blocked_returns_403(client):
     assert resp.json()["code"] == "FORBIDDEN"
 
 
-def test_missing_image_returns_400(client):
+def test_missing_image_is_accepted(client):
+    """images are OPTIONAL per openapi (SKUCreate.images default []) — omitting them is valid (201)."""
     product_id = _create_product(client)
     payload = {k: v for k, v in _sku_payload(product_id).items() if k != "images"}
-    resp = client.post("/api/v1/skus", json=payload, headers=SELLER_HEADERS)
-    assert resp.status_code == 400
-    assert resp.json()["code"] == "INVALID_REQUEST"
+    with patch("src.services.skus._send_moderation_event"):
+        resp = client.post("/api/v1/skus", json=payload, headers=SELLER_HEADERS)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["images"] == []
+
+
+def test_price_zero_is_accepted(client):
+    """price minimum is 0 per openapi (SKUCreate.price minimum:0) — price 0 must be accepted."""
+    product_id = _create_product(client)
+    payload = {**_sku_payload(product_id), "price": 0}
+    with patch("src.services.skus._send_moderation_event"):
+        resp = client.post("/api/v1/skus", json=payload, headers=SELLER_HEADERS)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["price"] == 0
+
+
+def test_cost_price_zero_is_accepted(client):
+    """cost_price has no minimum in openapi — 0 must be accepted."""
+    product_id = _create_product(client)
+    payload = {**_sku_payload(product_id), "cost_price": 0}
+    with patch("src.services.skus._send_moderation_event"):
+        resp = client.post("/api/v1/skus", json=payload, headers=SELLER_HEADERS)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["cost_price"] == 0
 
 
 def test_sku_on_moderated_product_triggers_remoderation(client):
